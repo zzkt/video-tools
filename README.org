@@ -5,7 +5,7 @@ Various utilities for video editing and manipulation.
 
 * Install
 
-Requires Janet (>= 1.41) and ffmpeg installed somewhere on =$PATH=
+Requires [[https://janet-lang.org/][Janet]] (>= 1.41) and =ffmpeg= installed somewhere on =$PATH=
 
 The scripts can be run from the command line using janet
 #+BEGIN_SRC shell
@@ -38,8 +38,7 @@ Uses =ffmpeg= scene detection to find cut points in video files, extracts a JPEG
 scenesplit [OPTIONS]
 #+end_example
 
-*** Options
-
+*Options*
 |-----------------+--------------------------------------------------------+---------------|
 | Flag            | Description                                            | Default       |
 |-----------------+--------------------------------------------------------+---------------|
@@ -52,7 +51,7 @@ scenesplit [OPTIONS]
 | =--dark=          | Use dark theme for HTML report                         | on            |
 |-----------------+--------------------------------------------------------+---------------|
 
-*** Examples
+** Examples
 
 Process all videos in the current directory, generate thumbnails only
 #+begin_src sh
@@ -109,13 +108,11 @@ Further reading: https://rawpedia.rawtherapee.com/Film_Simulation
 colour_grading COMMAND [OPTIONS]
 #+end_example
 
-*** Commands
-
+*Commands*
 - =generate= Generate a HaldCLUT identity image with reference frame (at given time)
 - =apply= Apply an edited HaldCLUT PNG to a video
 
-*** Options
-
+*Options*
 |-------------------+-----------------------------------------------+------------|
 | Flag              | Description                                   | Default    |
 |-------------------+-----------------------------------------------+------------|
@@ -172,8 +169,7 @@ Extracts a single pixel column from averaged frames and combines them into a hor
 colourstrip VIDEO [OPTIONS]
 #+end_example
 
-*** Options
-
+*Options*
 |------------------+----------------------------------------------+-----------|
 | Flag             | Description                                  | Default   |
 |------------------+----------------------------------------------+-----------|
@@ -213,8 +209,7 @@ Based on [[https://github.com/zzkt/slitscan]]
 slitscan VIDEO [OPTIONS]
 #+end_example
 
-*** Options
-
+*Options*
 |------------------+--------------------------------------------------------------+----------|
 | Flag             | Description                                                  | Default  |
 |------------------+--------------------------------------------------------------+----------|
