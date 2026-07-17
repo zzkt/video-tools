@@ -104,40 +104,29 @@ Further reading: https://rawpedia.rawtherapee.com/Film_Simulation
 
 ** Usage
 
-#+begin_example
-colour_grading COMMAND [OPTIONS]
-#+end_example
-
-*Commands*
-- =generate= Generate a HaldCLUT identity image with reference frame (at given time)
-- =apply= Apply an edited HaldCLUT PNG to a video
-
-*Options*
-|-------------------+-----------------------------------------------+------------|
-| Flag              | Description                                   | Default    |
-|-------------------+-----------------------------------------------+------------|
-| =--input FILE=      | Input video file                              | (required) |
-| =--output FILE=     | Output file path                              | (required) |
-| =--lut FILE=        | HaldCLUT PNG file (required for apply)        |            |
-| =--frame-time TIME= | Timestamp for reference frame (generate only) | =0:00:04=    |
-|-------------------+-----------------------------------------------+------------|
-
-** Examples
-
-Generate a HaldCLUT identity image with a frame at 4 seconds
+Generate a HaldCLUT identity image (outputs =VIDEO_clut.png=)
 #+begin_src sh
-colour_grading generate --input footage.mp4 --output clut.png
+colourgrade footage.mp4
 #+end_src
 
-Generate with a custom frame timestamp
+Generate CLUT from a frame at a specific timestamp
 #+begin_src sh
-colour_grading generate --input footage.mp4 --output clut.png --frame-time 0:01:30
+colourgrade --frame-time 0:01:30 footage.mp4
 #+end_src
 
 Apply an edited CLUT to a video
 #+begin_src sh
-colour_grading apply --lut clut.png --input footage.mp4 --output graded.mp4
+colourgrade --lut footage.mp4_clut.png footage.mp4 graded.mp4
 #+end_src
+
+
+*Options*
+|-------------------+--------------------------------------------------+---------|
+| Flag              | Description                                      | Default |
+|-------------------+--------------------------------------------------+---------|
+| =--lut FILE=        | HaldCLUT PNG file (if provided, applies grading) |         |
+| =--frame-time TIME= | Timestamp for reference frame (generate only)    | =0:00:04= |
+|-------------------+--------------------------------------------------+---------|
 
 ** Workflow
 
@@ -145,7 +134,7 @@ The utility applies a CLUT to an entire video file. If there is more than one gr
 
 Generate the HaldCLUT identity image
    #+begin_src sh
-colour_grading generate --input footage.mp4 --output clut.png
+colourgrade footage.mp4
    #+end_src
 
 Open =clut.png= in an image editor (GIMP, Photoshop, etc.)
@@ -154,7 +143,7 @@ Adjust the levels and/or curves for the entire image to create the desired look.
 
 Save the edited PNG and apply to the video
    #+begin_src sh
-colour_grading apply --input footage.mp4 --lut clut.png --output graded.mp4
+colourgrade --lut footage.mp4_clut.png footage.mp4 graded.mp4
    #+end_src
 
 * colourstrip

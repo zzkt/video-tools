@@ -1,5 +1,5 @@
 #!/usr/bin/env janet
-# colourgrade: Automated colour grading using HaldCLUT
+# colourgrade: Generate HaldCLUT or apply it to a video
 
 (import cmd)
 
@@ -18,22 +18,24 @@
     (do (def ln (string tmp "_ln.mp4")) (os/symlink video ln) ln)
     video))
 
+(defn basename [p]
+  (last (string/split "/" p)))
 
-(defn hald-generate [video output frame-time]
+(defn hald-generate [video]
   (def tmp (string (or (os/getenv "TMPDIR") "/tmp") "/hald_" (math/random)))
   (def lavfi-video (make-lavfi-safe video tmp))
-  (printf "Generating HaldCLUT identity image with frame at %s...\n" frame-time)
+  (def output (string (basename video) "_clut.png"))
+  (printf "Generating HaldCLUT identity image with frame at 0:00:04...\n")
   (shell "sh" "-c" (string "ffmpeg -y -v error"
                            " -f lavfi -i haldclutsrc=8"
                            " -i " (shell-quote lavfi-video)
-                           " -ss " frame-time " -frames:v 1"
+                           " -ss 0:00:04 -frames:v 1"
                            " -filter_complex \"[1]scale=-1:512[b];[0][b]hstack\""
                            " " (shell-quote output)))
   (when (lavfi-has-special video) (os/rm (string tmp "_ln.mp4")))
   (printf "Saved: %s\n" output)
-  (print "\nEdit the PNG to apply your colour grading, then run:")
-  (printf "  colour_grading apply --input VIDEO --lut %s --output OUTPUT\n" output))
-
+  (print "\nEdit the PNG to apply your colour grading, then apply with ffmpeg:")
+  (printf "  colourgrade --lut %s INPUT OUTPUT\n" output))
 
 (defn hald-apply [video lut output]
   (printf "Applying HaldCLUT from %s...\n" lut)
@@ -47,25 +49,23 @@
                            " " (shell-quote output)))
   (printf "Saved: %s\n" output))
 
-
 (cmd/main (cmd/fn ```Automated colour grading using HaldCLUT with ffmpeg.
 
-Generate a HaldCLUT identity image with a reference frame from your video,
-edit the PNG to apply colour grading, then apply it back to the video.```
+Generate a HaldCLUT identity image from a video:
+  colourgrade video.mp4
 
-  [command :string
-   --input (required :string)
-   "Input video file"
-   --output (required :string)
-   "Output file path"
+Apply an edited CLUT to a video:
+  colourgrade --lut clut.png input.mp4 output.mp4```
+
+  [video :string "Input video file"
+   output (optional :string "") "Output file (apply mode only)"
    --lut (optional :string "")
-   "HaldCLUT PNG file (required for apply)"
-   --frame-time (optional :string "0:00:04")
-   "Timestamp for reference frame (generate only)"]
+   "HaldCLUT PNG file (if provided, applies grading)"]
 
-  (case command
-    "generate" (hald-generate input output frame-time)
-    "apply" (do
-      (when (= lut "") (print "Error: --lut required for apply") (break))
-      (hald-apply input lut output))
-    (printf "Error: unknown command '%s' (use generate or apply)\n" command))))
+  (if (= lut "")
+    (hald-generate video)
+    (do
+      (when (= output "")
+        (printf "Error: output file required when using --lut\n")
+        (break))
+      (hald-apply video lut output)))))
