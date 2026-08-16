@@ -102,7 +102,7 @@ Automated colour grading using HaldCLUT (Color Lookup Table) with ffmpeg.
 
 Generates a HaldCLUT identity image with a reference frame from the video. The image can be edited in any image editor to apply colour grading. The modified CLUT can then be applied to the entire video.
 
-file:img/colourgrade.webp
+[[file:img/colourgrade.webp]]
 
 Further reading: https://rawpedia.rawtherapee.com/Film_Simulation
 
@@ -156,7 +156,7 @@ Create a colour strip visualization from a video.
 
 Extracts a single pixel column from averaged frames and combines them into a horizontal strip showing the colour progression of the video. Useful for visualizing overall colour palette and transitions in a video.
 
-file:img/colourstrip.webp
+[[file:img/colourstrip.webp]]
 
 ** Usage
 
