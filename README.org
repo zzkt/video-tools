@@ -21,7 +21,7 @@ compiled binaries can be created using =jpm= and installed somewhere on =$PATH=
  #+BEGIN_SRC shell
  jpm build
  # optionally move binaries from build/ folder to $PATH
- mv build/colourgrade build/colourstrip build/scenesplit build/slitscan /usr/local/bin/.
+ mv build/colourgrade build/colourstrip build/scenesplit build/slitscan build/slidestitch /usr/local/bin/.
  #+END_SRC
 
 The scripts are written as wrappers around specific =ffmpeg= or =ffprobe= commands, and can be extended if required by directly editing the calls to =ffmpeg= and adding any required args (e.g. to change output quality or format).
@@ -31,6 +31,8 @@ The scripts are written as wrappers around specific =ffmpeg= or =ffprobe= comman
 Split video files into individual scenes and generate an HTML overview.
 
 Uses =ffmpeg= scene detection to find cut points in video files, extracts a JPEG thumbnail for each scene, and optionally cuts each scene into a separate video file. Outputs an HTML overview. Accepts either a single video file or a directory of videos.
+
+[[file:img/scenesplit.webp]]
 
 ** Usage
 
@@ -100,6 +102,8 @@ Automated colour grading using HaldCLUT (Color Lookup Table) with ffmpeg.
 
 Generates a HaldCLUT identity image with a reference frame from the video. The image can be edited in any image editor to apply colour grading. The modified CLUT can then be applied to the entire video.
 
+file:img/colourgrade.webp
+
 Further reading: https://rawpedia.rawtherapee.com/Film_Simulation
 
 ** Usage
@@ -151,6 +155,8 @@ colourgrade --lut footage.mp4_clut.png footage.mp4 graded.mp4
 Create a colour strip visualization from a video.
 
 Extracts a single pixel column from averaged frames and combines them into a horizontal strip showing the colour progression of the video. Useful for visualizing overall colour palette and transitions in a video.
+
+file:img/colourstrip.webp
 
 ** Usage
 
@@ -233,3 +239,77 @@ The script produces two MKV files:
 
 - =<output>_horizontal-smear.mkv= — horizontal frame smearing effect
 - =<output>_vertical-smear.mkv= — vertical frame smearing effect
+
+* scenephash
+
+Split video into scenes using perceptual hashing.
+
+Uses pHash DCT hashing on keyframes to detect scene changes and split video at those points into separate files.
+
+** Usage
+
+#+begin_example
+scenephash VIDEO [OPTIONS]
+#+end_example
+
+*Options*
+|---------------------+------------------------------------------------------+-----------|
+| Flag                | Description                                          | Default   |
+|---------------------+------------------------------------------------------+-----------|
+| =--output PREFIX=     | Output file prefix                                   | =scenes=    |
+| =--threshold NUM=     | Hamming distance threshold (0-64, lower=more scenes) | =10=        |
+|---------------------+------------------------------------------------------+-----------|
+
+** Examples
+
+Split video into scenes with default threshold
+#+begin_src sh
+scenephash footage.mp4
+#+end_src
+
+Split with lower threshold for more scenes
+#+begin_src sh
+scenephash footage.mp4 --output my_scenes --threshold 5
+#+end_src
+
+* slidestitch
+
+Create video from still images with crossfades.
+
+Takes a directory of images and creates a video with smooth crossfade transitions between them. Supports lead-in/out fades, configurable fade duration, and optional displacement maps for effects.
+
+** Usage
+
+#+begin_example
+slidestitch IMAGES OUTPUT [OPTIONS]
+#+end_example
+
+*Options*
+|---------------------+------------------------------------------------------+-----------|
+| Flag                | Description                                          | Default   |
+|---------------------+------------------------------------------------------+-----------|
+| =--scale MODE=       | Scale mode: stretch, contain, cover                  | =contain=   |
+| =--lead-in SEC=      | Fade-in duration at start                            | =0=         |
+| =--lead-out SEC=     | Fade-out duration at end                             | =0=         |
+| =--fade SEC=         | Crossfade slope duration between images              | =1.0=       |
+| =--duration SEC=     | Total video duration                                 | =10=        |
+| =--displacement FILE=| Displacement map video for effects                   |             |
+| =--fps NUM=          | Output frame rate                                    | =24=        |
+|---------------------+------------------------------------------------------+-----------|
+
+** Examples
+
+Create a 60 second slideshow with 1 second crossfades
+#+begin_src sh
+slidestitch ./frames output.mp4 --duration 60 --fade 1
+#+end_src
+
+Create with lead-in/out fades and cover scaling
+#+begin_src sh
+slidestitch ./frames output.mp4 --scale cover --lead-in 2 --lead-out 2 --duration 30
+#+end_src
+
+Create with custom frame rate
+#+begin_src sh
+slidestitch ./frames output.mp4 --duration 20 --fps 30
+#+end_src

@@ -1,71 +1,106 @@
 #!/usr/bin/env janet
-# colourgrade: Generate HaldCLUT or apply it to a video
+# colourgrade: Generate HaldCLUT or apply it to a video.
 
 (import cmd)
+(import spork/sh)
 
-(defn shell [& args]
-  (os/execute args :p))
-
-(defn shell-quote [s]
-  (string "'" (string/replace "'" "'\\''" s) "'"))
-
-(defn lavfi-has-special [s]
-  (or (string/find "'" s) (string/find ":" s) (string/find ";" s)
-      (string/find "?" s) (string/find "&" s)))
-
-(defn make-lavfi-safe [video tmp]
-  (if (lavfi-has-special video)
-    (do (def ln (string tmp "_ln.mp4")) (os/symlink video ln) ln)
-    video))
+(math/seedrandom (string (os/clock)))
 
 (defn basename [p]
   (last (string/split "/" p)))
 
-(defn hald-generate [video]
-  (def tmp (string (or (os/getenv "TMPDIR") "/tmp") "/hald_" (math/random)))
-  (def lavfi-video (make-lavfi-safe video tmp))
-  (def output (string (basename video) "_clut.png"))
-  (printf "Generating HaldCLUT identity image with frame at 0:00:04...\n")
-  (shell "sh" "-c" (string "ffmpeg -y -v error"
-                           " -f lavfi -i haldclutsrc=8"
-                           " -i " (shell-quote lavfi-video)
-                           " -ss 0:00:04 -frames:v 1"
-                           " -filter_complex \"[1]scale=-1:512[b];[0][b]hstack\""
-                           " " (shell-quote output)))
-  (when (lavfi-has-special video) (os/rm (string tmp "_ln.mp4")))
-  (printf "Saved: %s\n" output)
-  (print "\nEdit the PNG to apply your colour grading, then apply with ffmpeg:")
-  (printf "  colourgrade --lut %s INPUT OUTPUT\n" output))
+(defn tmp []
+  (string (or (os/getenv "TMPDIR") "/tmp")
+          "/cg_" (math/random) ".txt"))
+
+(defn lavfi-safe [video t]
+  (if (some (fn [c] (string/find (string/from-bytes c) video)) ":'\"?;&")
+    (let [ln (string t ".ln.mp4")
+          video-path (if (string/has-prefix? "/" video) video
+                      (string (os/cwd) "/" video))]
+      (when (os/stat ln) (os/rm ln))
+      (os/symlink video-path ln)
+      ln)
+    video))
+
+(defn run-ffmpeg [cmd]
+  (def t (os/clock))
+  (os/execute ["sh" "-c" cmd] :p)
+  (printf "Elapsed: %.1fs" (- (os/clock) t)))
+
+
+(defn hald-generate [video frame-time]
+  "Generate a HaldCLUT image from VIDEO at FRAME-TIME."
+  (def t (tmp))
+  (def lavfi (lavfi-safe video t))
+  (def out (string (basename video) "_clut.png"))
+  (printf "Generating HaldCLUT with frame at %s..." frame-time)
+  (run-ffmpeg (string "ffmpeg -y -v error"
+                      " -f lavfi -i haldclutsrc=8"
+                      " -i " (sh/escape lavfi)
+                      " -ss " frame-time " -frames:v 1"
+                      " -filter_complex \"[1]scale=-1:512[b];[0][b]hstack\""
+                      " " (sh/escape out)))
+  (when (not= lavfi video)
+    (os/rm (string t ".ln.mp4")))
+  (printf "Saved: %s" out)
+  (printf "Edit the PNG to apply your colour grading then run:")
+  (printf "    colourgrade --lut '%s' INPUT OUTPUT\n" out))
+
 
 (defn hald-apply [video lut output]
-  (printf "Applying HaldCLUT from %s...\n" lut)
-  (shell "sh" "-c" (string "ffmpeg -y -v error"
-                           " -i " (shell-quote video)
-                           " -i " (shell-quote lut)
-                           " -filter_complex haldclut"
-                           " -pix_fmt yuv420p"
-                           " -c:v libx264 -preset slow -crf 18"
-                           " -c:a copy"
-                           " " (shell-quote output)))
-  (printf "Saved: %s\n" output))
+  "Apply a LUT image to VIDEO and write to OUTPUT file."
+  (printf "Applying HaldCLUT from %s..." lut)
+  (run-ffmpeg (string "ffmpeg -y -v error"
+                      " -i " (sh/escape video)
+                      " -i " (sh/escape lut)
+                      " -filter_complex haldclut"
+                      " -pix_fmt yuv420p"
+                      " -c:v libx264 -preset slow -crf 18"
+                      " -c:a copy " (sh/escape output)))
+  (printf "Saved: %s" output))
 
-(cmd/main (cmd/fn ```Automated colour grading using HaldCLUT with ffmpeg.
 
-Generate a HaldCLUT identity image from a video:
-  colourgrade video.mp4
+(defn compare-videos [v1 v2 output]
+  "Generate side-by-side comparison OUTPUT video from V1 and V2."
+  (printf "Stacking '%s' and '%s'..." v1 v2)
+  (run-ffmpeg (string "ffmpeg -y -v error"
+                      " -i " (sh/escape v1)
+                      " -i " (sh/escape v2)
+                      " -filter_complex hstack " (sh/escape output)))
+  (printf "Saved: %s" output))
 
-Apply an edited CLUT to a video:
-  colourgrade --lut clut.png input.mp4 output.mp4```
 
-  [video :string "Input video file"
-   output (optional :string "") "Output file (apply mode only)"
+(defn usage []
+  (print "Automated colour grading using HaldCLUT with ffmpeg.")
+  (print)
+  (print "Usage:")
+  (print "  colourgrade video.mp4                            Generate CLUT")
+  (print "  colourgrade --lut clut.png input.mp4 output.mp4  Apply CLUT")
+  (print "  colourgrade --compare clip1.mov clip2.mov        Side-by-side"))
+
+
+(cmd/main (cmd/fn "Automated colour grading using HaldCLUT with ffmpeg."
+  [video (optional :string "") "Input video file"
+   output (optional :string "") "Output file"
    --lut (optional :string "")
-   "HaldCLUT PNG file (if provided, applies grading)"]
+   "HaldCLUT PNG file (if provided applies grading)"
+   --frame-time (optional :string "0:00:04")
+   "Timestamp for reference frame (generate only)"
+   --compare (optional :string "")
+   "Videos for side-by-side comparison"]
 
-  (if (= lut "")
-    (hald-generate video)
-    (do
-      (when (= output "")
-        (printf "Error: output file required when using --lut\n")
-        (break))
-      (hald-apply video lut output)))))
+  (cond
+    # compare
+    (not (empty? compare))
+    (compare-videos compare video
+                    (if (= output "") "side-by-side.mp4" output))
+    # apply lut
+    (not (empty? lut))
+    (if (= output "")
+      (printf "Error: --output required with --lut")
+      (hald-apply video lut output))
+    # help
+    (empty? video) (do (usage) (break))
+    # generate
+    (hald-generate video frame-time))))
